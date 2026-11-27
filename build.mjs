@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { conversions } from './src/registry.mjs';
+import { conversions, roEuro } from './src/registry.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DIST = process.env.DIST_DIR ? path.resolve(process.env.DIST_DIR) : path.join(ROOT, 'dist');
@@ -150,9 +150,12 @@ const FAQ_KIND = {
   hwpx: [['HWP 파일은 안 되나요?', '구버전 HWP는 아직 지원하지 않습니다. 한글에서 HWPX로 저장한 뒤 올려 주세요.']],
 };
 function faqFor(c) {
+  const media = ['video', 'vidgif', 'vidaudio', 'audio', 'vidcompress', 'trim', 'vidmute'].includes(c.kind);
   const f = [...FAQ_COMMON];
+  // 영상·오디오는 파일 하나당 약 1GB 까지만 처리하므로 "용량 제한 없음"으로 보이지 않게 따로 안내한다
+  if (media) f[1] = [FAQ_COMMON[1][0], '무료이고 회원가입도 필요 없습니다. 횟수 제한은 없습니다. 다만 영상·오디오는 파일 하나당 약 1GB 이하만 처리할 수 있고, 큰 파일은 기기 성능에 따라 오래 걸리거나 실패할 수 있습니다.'];
   if (c.output === 'jpg' && !['text', 'compress', 'resize', 'exif', 'stitch', 'pdfimg'].includes(c.kind)) f.push(['투명한 배경은 어떻게 되나요?', 'JPG는 투명 배경을 지원하지 않아 흰색으로 채워집니다. 투명을 유지하려면 PNG나 WebP로 변환하세요.']);
-  if (['video', 'vidgif', 'vidaudio', 'audio', 'vidcompress', 'trim', 'vidmute'].includes(c.kind)) f.push(['오래 걸려요.', '내 기기에서 직접 처리하기 때문에 영상은 길이와 용량에 따라 시간이 걸릴 수 있습니다. 처음 한 번은 변환 엔진을 내려받는 시간이 추가됩니다. 도중에 "취소"를 눌러 멈출 수 있습니다.']);
+  if (media) f.push([`${c.h1}, 왜 오래 걸리나요?`, '내 기기에서 직접 처리하기 때문에 영상은 길이와 용량에 따라 시간이 걸릴 수 있습니다. 처음 한 번은 변환 엔진을 내려받는 시간이 추가됩니다. 도중에 "취소"를 눌러 멈출 수 있습니다.']);
   f.push(...(FAQ_KIND[c.kind] || []));
   return f;
 }
@@ -175,6 +178,7 @@ const FACTS = {
   ogg: 'OGG는 누구나 무료로 쓸 수 있는 오디오 형식입니다. 일부 기기에서는 재생되지 않을 수 있습니다.',
   m4a: 'M4A는 애플 기기에서 많이 쓰는 오디오 형식으로, 같은 용량에서 MP3보다 음질이 좋은 편입니다.',
   flac: 'FLAC은 음질 손실 없이 압축하는 오디오 형식입니다. 음원 보관에 쓰이지만 MP3보다 용량이 큽니다.',
+  wma: 'WMA는 마이크로소프트(윈도우 미디어 플레이어)가 만든 오디오 형식입니다. 스마트폰과 일부 기기에서는 재생되지 않아 MP3로 바꿔 쓰는 경우가 많습니다.',
   aac: 'AAC는 MP3의 후속으로 만들어진 오디오 형식으로 스트리밍에서 많이 쓰입니다.',
   mp4: 'MP4는 가장 널리 쓰이는 영상 형식으로 스마트폰·컴퓨터·TV 어디서나 재생됩니다.',
   mov: 'MOV는 애플(퀵타임)에서 만든 영상 형식입니다. 아이폰으로 찍은 영상이 이 형식인 경우가 많습니다.',
@@ -203,7 +207,7 @@ function relatedFor(c) {
   if (a.length) sections.push([`${c.fromName} 파일로 할 수 있는 다른 작업`, a]);
   const b = c.output === 'pdf' || ['jpg', 'png', 'webp'].includes(c.output) || c.kind !== 'text'
     ? pick(conversions.filter((x) => x.output === c.output && x.kind !== 'text'), 8) : [];
-  if (b.length) sections.push([`${c.toName}로 바꾸는 다른 변환`, b]);
+  if (b.length) sections.push([`${c.toName}${roEuro(c.toName)} 바꾸는 다른 변환`, b]);
   const t = pick(conversions.filter((x) => x.verb && x.group === c.group), 6);
   const g = pick(conversions.filter((x) => x.group === c.group), t.length ? 4 : 10);
   if (t.length + g.length) sections.push([`다른 ${c.group} 도구`, [...t, ...g]]);
@@ -342,7 +346,7 @@ docPage('about', '소개', `<p>${SITE}는 이미지, PDF, 오디오, 영상, 문
 <h2>할 수 있는 일</h2>
 <p>JPG·PNG·WebP·HEIC 같은 이미지 변환과 용량 줄이기, PDF 합치기·나누기·페이지 정리·용량 줄이기·워터마크, 동영상·오디오 변환과 자르기, 엑셀·CSV·JSON 변환 등을 지원합니다.</p>
 <h2>파일은 어디로도 올라가지 않습니다</h2>
-<p>모든 변환은 이용자의 기기 안(브라우저)에서 처리됩니다. 선택한 파일은 사이트 서버로 전송되지 않고 저장되지도 않습니다. 영상·오디오 변환을 처음 사용할 때에만 변환 엔진(약 30MB)을 이 사이트에서 내려받으며, 이때에도 파일 내용은 어디로도 전송되지 않습니다.</p>
+<p>모든 변환은 이용자의 기기 안(브라우저)에서 처리됩니다. 선택한 파일은 사이트 서버로 전송되지 않고 저장되지도 않습니다. 영상·오디오 변환을 처음 사용할 때에만 변환 엔진(약 32MB)을 이 사이트에서 내려받으며, 이때에도 파일 내용은 어디로도 전송되지 않습니다.</p>
 ${cfg.contactEmail ? `<h2>문의</h2><p>${esc(cfg.contactEmail)}</p>` : `<h2>문의</h2>${draftBox('문의 메일 주소 자리 — 도메인 메일을 만들면 이 자리에 들어가요 (site.config.json 의 contactEmail)')}`}`);
 docPage('privacy', '개인정보처리방침', `<p>${SITE}(이하 "사이트")는 이용자의 이름·연락처 같은 개인정보를 수집하지 않으며, 회원가입이 없습니다.</p>
 <h2>파일 처리</h2><p>이용자가 선택한 파일은 이용자의 브라우저 안에서만 처리되며, 사이트 서버로 전송되거나 저장되지 않습니다.</p>

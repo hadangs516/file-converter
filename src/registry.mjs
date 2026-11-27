@@ -161,6 +161,6 @@ export const conversions = list.map((e) => {
     toName,
     title,
     h1,
-    description: `${title} - 설치·가입·용량 제한 없이 브라우저에서 바로. 파일이 서버로 업로드되지 않아 안전하고 무료입니다.`,
+    description: `${title} - 설치·가입 없이 브라우저에서 바로, 횟수 제한 없이 무료로. 파일이 서버로 업로드되지 않아 안전합니다.`,
   };
 });

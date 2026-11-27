@@ -134,9 +134,11 @@ export async function decodeImage(file, bg) {
   if (ext === 'svg') {
     const { img, url } = await imgFromBlob(new Blob([await file.text()], { type: 'image/svg+xml' }));
     let w = img.naturalWidth || 1024, h = img.naturalHeight || 1024;
+    const w0 = w, h0 = h;
     const s = w < 1024 ? 1024 / w : 1; // 작은 SVG 는 선명하게 키움
     w = Math.round(w * s); h = Math.round(h * s);
     const c = toCanvas(img, w, h, bg);
+    if (s !== 1) c.svgNote = `SVG 원래 크기(${w0}×${h0})가 작아서 ${w}×${h}로 키워 저장했어요.`;
     URL.revokeObjectURL(url);
     return c;
   }
@@ -154,6 +156,40 @@ export async function decodeImage(file, bg) {
 }
 
 // ───────── 이미지 계열
+// GIF 안의 장면 수 (움직이는 GIF 인지 알아내려고 블록 구조만 훑는다)
+export async function gifFrames(file) {
+  const b = new Uint8Array(await file.arrayBuffer());
+  if (b.length < 14 || String.fromCharCode(b[0], b[1], b[2]) !== 'GIF') return 1;
+  let p = 13, n = 0;
+  if (b[10] & 0x80) p += 3 * (1 << ((b[10] & 7) + 1));
+  while (p < b.length) {
+    const t = b[p++];
+    if (t === 0x3b) break;
+    if (t === 0x2c) { // 이미지 한 장
+      n++;
+      const f = b[p + 8];
+      p += 9;
+      if (f & 0x80) p += 3 * (1 << ((f & 7) + 1));
+      p++; // LZW 최소 코드 크기
+      while (p < b.length && b[p] !== 0) p += b[p] + 1;
+      p++;
+    } else if (t === 0x21) { // 확장 블록
+      p++;
+      while (p < b.length && b[p] !== 0) p += b[p] + 1;
+      p++;
+    } else break;
+  }
+  return n;
+}
+// 움직이는 GIF 를 움직이지 않는 형식으로 바꿀 때 첫 장면만 남는다는 안내
+async function gifNote(file, to) {
+  if (normExt(file.name) !== 'gif' || to === 'gif') return '';
+  try {
+    const n = await gifFrames(file);
+    if (n > 1) return `움직이는 GIF(${n}장면)라서 첫 장면 한 장만 변환했어요. 움직임을 살리려면 GIF → MP4 변환을 이용해 주세요.`;
+  } catch { /* 안내만 못 붙일 뿐 변환은 계속한다 */ }
+  return '';
+}
 async function hImage(entry, { files, onProgress }) {
   const to = entry.output;
   const out = [];
@@ -161,7 +197,10 @@ async function hImage(entry, { files, onProgress }) {
     checkCancel();
     onProgress?.(i / files.length, `${i + 1}/${files.length} 변환 중`);
     const c = await decodeImage(files[i], to === 'jpg' ? '#ffffff' : null);
-    out.push({ name: `${baseName(files[i].name)}.${to}`, blob: await canvasToBlob(c, MIME[to], 0.92) });
+    const blob = await canvasToBlob(c, MIME[to], 0.92);
+    const notes = [await gifNote(files[i], to), c.svgNote];
+    if (to === 'png' && blob.size > 100 * 1024 && blob.size > files[i].size * 1.5) notes.push('PNG는 화질 손실 없이 저장하는 형식이라 용량이 크게 늘 수 있어요. 용량이 중요하면 JPG나 WebP를 쓰세요.');
+    out.push({ name: `${baseName(files[i].name)}.${to}`, blob, note: notes.filter(Boolean).join(' ') || undefined });
   }
   return out;
 }
@@ -192,9 +231,10 @@ async function hCompress(entry, { files, opts, onProgress }) {
     const src = normExt(files[i].name);
     // 압축했더니 오히려 커졌으면 원본 유지 (목표 용량을 지정한 경우는 결과를 그대로 줌)
     const keep = !target && blob.size >= files[i].size;
+    const notes = keep ? ['이미 충분히 작아서 원본 그대로예요.']
+      : [(src === 'png' || src === 'webp') ? 'JPG로 저장돼서 투명한 배경은 흰색이 돼요.' : '', await gifNote(files[i], 'jpg'), c.svgNote];
     out.push({ name: keep ? files[i].name : `${baseName(files[i].name)}_compressed.jpg`, blob: keep ? files[i] : blob,
-      note: keep ? '이미 충분히 작아서 원본 그대로예요.'
-        : (src === 'png' || src === 'webp') ? 'JPG로 저장돼서 투명한 배경은 흰색이 돼요.' : undefined });
+      note: notes.filter(Boolean).join(' ') || undefined });
   }
   return out;
 }
@@ -208,22 +248,74 @@ async function hResize(entry, { files, opts, onProgress }) {
     const to = src === 'png' || src === 'webp' ? src : 'jpg';
     const c0 = await decodeImage(files[i], to === 'jpg' ? '#ffffff' : null);
     const r = Math.min(1, maxW / c0.width);
-    const c = r < 1 ? smoothScale(c0, Math.round(c0.width * r), Math.round(c0.height * r)) : c0;
-    out.push({ name: `${baseName(files[i].name)}_${r < 1 ? `${maxW}px` : 'resized'}.${to}`, blob: await canvasToBlob(c, MIME[to], 0.92),
-      note: r < 1 ? undefined : `이미 ${maxW}px보다 작아서 크기는 그대로예요. (확대는 하지 않아요)` });
+    if (r >= 1) { // 줄일 필요가 없으면 다시 저장하지 않고 원본을 그대로 돌려준다 (용량이 오히려 커지는 것을 막는다)
+      out.push({ name: files[i].name, blob: files[i], note: `이미 ${maxW}px 이하라서 원본 그대로예요. (확대는 하지 않아요)` });
+      continue;
+    }
+    const c = smoothScale(c0, Math.round(c0.width * r), Math.round(c0.height * r));
+    out.push({ name: `${baseName(files[i].name)}_${maxW}px.${to}`, blob: await canvasToBlob(c, MIME[to], 0.92),
+      note: [await gifNote(files[i], to), c0.svgNote].filter(Boolean).join(' ') || undefined });
   }
   return out;
 }
-// 다시 그리기만 하면 EXIF(위치·기기 정보)가 사라진다
+// JPG 는 화질을 건드리지 않고 정보 칸(EXIF·XMP·IPTC·주석)만 잘라낸다. 사진이 회전 정보에 기대고 있으면 null (다시 그려야 방향이 맞다)
+function exifOrientation(seg) {
+  if (String.fromCharCode(...seg.subarray(4, 10)) !== 'Exif\0\0') return 1;
+  const t = 10, le = seg[t] === 0x49;
+  const u16 = (o) => (le ? seg[o] | (seg[o + 1] << 8) : (seg[o] << 8) | seg[o + 1]);
+  const u32 = (o) => (le ? (seg[o] | (seg[o + 1] << 8) | (seg[o + 2] << 16) | (seg[o + 3] << 24)) >>> 0
+    : ((seg[o] << 24) | (seg[o + 1] << 16) | (seg[o + 2] << 8) | seg[o + 3]) >>> 0);
+  const ifd = t + u32(t + 4);
+  if (ifd + 2 > seg.length) throw new Error('bad exif');
+  const n = u16(ifd);
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12;
+    if (e + 12 > seg.length) throw new Error('bad exif');
+    if (u16(e) === 0x0112) return u16(e + 8);
+  }
+  return 1;
+}
+async function stripJpegMeta(file) {
+  const b = new Uint8Array(await file.arrayBuffer());
+  if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+  const keep = [b.subarray(0, 2)];
+  let p = 2, removed = 0;
+  while (p + 4 <= b.length) {
+    if (b[p] !== 0xff) return null;
+    const m = b[p + 1];
+    if (m === 0xff) { p++; continue; }
+    if (m === 0xda || m === 0xd9) { keep.push(b.subarray(p)); break; } // 이미지 데이터부터는 그대로
+    const len = (b[p + 2] << 8) | b[p + 3];
+    if (len < 2 || p + 2 + len > b.length) return null;
+    const seg = b.subarray(p, p + 2 + len);
+    if (m === 0xe1 || m === 0xed || m === 0xfe) { // APP1(EXIF·XMP), APP13(IPTC), 주석
+      if (m === 0xe1 && exifOrientation(seg) !== 1) return null;
+      removed++;
+    } else keep.push(seg);
+    p += 2 + len;
+  }
+  return { blob: removed ? new Blob(keep, { type: 'image/jpeg' }) : file, removed: removed > 0 };
+}
 async function hExif(entry, { files, onProgress }) {
   const out = [];
   for (let i = 0; i < files.length; i++) {
     checkCancel();
     onProgress?.(i / files.length, `${i + 1}/${files.length} 처리 중`);
     const src = normExt(files[i].name);
+    if (src === 'jpg') {
+      let r = null;
+      try { r = await stripJpegMeta(files[i]); } catch { r = null; }
+      if (r) {
+        out.push({ name: r.removed ? `${baseName(files[i].name)}_clean.jpg` : files[i].name, blob: r.blob,
+          note: r.removed ? '화질은 그대로 두고 위치·기기 정보만 지웠어요.' : '지울 위치·기기 정보가 들어 있지 않아서 원본 그대로예요.' });
+        continue;
+      }
+    }
+    // 다시 그리기만 해도 EXIF(위치·기기 정보)는 사라진다
     const to = src === 'png' || src === 'webp' ? src : 'jpg';
     const c = await decodeImage(files[i], to === 'jpg' ? '#ffffff' : null);
-    out.push({ name: `${baseName(files[i].name)}_clean.${to}`, blob: await canvasToBlob(c, MIME[to], 0.95) });
+    out.push({ name: `${baseName(files[i].name)}_clean.${to}`, blob: await canvasToBlob(c, MIME[to], 0.95),
+      note: src === 'jpg' ? '사진 방향을 바로잡아 다시 저장해서 용량이 조금 달라질 수 있어요.' : undefined });
   }
   return out;
 }
@@ -613,7 +705,7 @@ async function getFFmpeg() {
             last = new Error('status ' + r.status);
           } catch (e) { last = e; }
         }
-        throw new Error('변환 엔진(약 30MB)을 내려받지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+        throw new Error('변환 엔진(약 32MB)을 내려받지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
       };
       await ff.load({
         coreURL: await toBlobURL('ffmpeg-core.js', 'text/javascript'),
@@ -720,17 +812,40 @@ function hVidCompress(e, ctx) {
     outExt: () => 'mp4', suffix: '_compressed',
   });
 }
-function hTrim(e, ctx) {
+// 결과 파일의 실제 길이(초). 브라우저가 못 읽는 형식이면 0
+function mediaDuration(blob) {
+  return new Promise((res) => {
+    const m = document.createElement(blob.type.startsWith('audio') ? 'audio' : 'video');
+    const url = URL.createObjectURL(blob);
+    let t;
+    const done = (v) => { clearTimeout(t); URL.revokeObjectURL(url); m.removeAttribute('src'); res(v); };
+    t = setTimeout(() => done(0), 4000);
+    m.preload = 'metadata';
+    m.onloadedmetadata = () => done(Number.isFinite(m.duration) ? m.duration : 0);
+    m.onerror = () => done(0);
+    m.src = url;
+  });
+}
+async function hTrim(e, ctx) {
   const o = ctx.opts || {};
   const start = parseTime(o.start) || 0, end = parseTime(o.end);
   if (end != null && end <= start) throw new Error('끝 시간은 시작 시간보다 커야 해요.');
   const precise = !!o.precise;
   const reenc = (f) => (VIDEO_EXTS.includes(normExt(f.name)) ? V_ARGS[normExt(f.name)] : A_ARGS[normExt(f.name)] || []);
-  return runFfmpeg(e, ctx, {
+  const out = await runFfmpeg(e, ctx, {
     preIn: start > 0 ? ['-ss', String(start)] : [],
     args: (f) => [...(end != null ? ['-t', String(end - start)] : []), ...(precise ? reenc(f) : ['-c', 'copy', '-avoid_negative_ts', 'make_zero'])],
     outExt: sameExt, suffix: '_cut',
   });
+  // 빠른 방식은 키프레임 단위로 잘려서 길이가 달라질 수 있으니 실제 결과 길이를 알려 준다
+  for (const r of out) {
+    const d = await mediaDuration(r.blob);
+    if (!d) continue;
+    const want = end != null ? end - start : null;
+    r.note = `결과 길이는 약 ${d.toFixed(1)}초예요.`;
+    if (!precise && want != null && Math.abs(d - want) > 0.5) r.note += ` 빠르게 자르는 방식이라 요청한 ${want.toFixed(1)}초와 차이가 나요. 정확히 맞추려면 "정확하게 자르기"를 켜 주세요.`;
+  }
+  return out;
 }
 
 // ───────── 데이터/문서
@@ -962,7 +1077,7 @@ async function hText(entry, { text, onProgress }) {
       const img = await doc.embedJpg(new Uint8Array(await jpg.arrayBuffer()));
       doc.addPage([595.28, 841.89]).drawImage(img, { x: 0, y: 0, width: 595.28, height: 841.89 });
     }
-    return [{ name: 'text.pdf', blob: new Blob([await doc.save()], { type: PDF_MIME }) }];
+    return [{ name: 'text.pdf', blob: new Blob([await doc.save()], { type: PDF_MIME }), note: '글자를 사진처럼 넣은 PDF라서 글자 선택·검색·복사는 안 돼요.' }];
   }
   const out = [];
   for (let i = 0; i < pages.length; i++) {

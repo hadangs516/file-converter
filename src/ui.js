@@ -1,5 +1,5 @@
 import { conversions as ALL } from './registry.js';
-import { run, normExt, zipAll, cancelRun } from './engine.js';
+import { run, normExt, zipAll, cancelRun, gifFrames } from './engine.js';
 
 // Claude 아티팩트 안에서 열린 미리보기에서는 외부 CDN(영상·오디오 엔진)을 받을 수 없고, 저장은 아티팩트의 저장 기능으로 해야 한다
 const IN_ARTIFACT = typeof window !== 'undefined' && !!window.claude?.use;
@@ -52,7 +52,7 @@ function targetsFor(exts) {
 
 // ───────── 화면 요소
 const dz = $('#dropzone'), fileInput = $('#file'), listEl = $('#files'), textBox = $('#textbox');
-const targetsEl = $('#targets'), optsEl = $('#opts'), goBtn = $('#go'), msgEl = $('#msg');
+const targetsEl = $('#targets'), optsEl = $('#opts'), goBtn = $('#go'), msgEl = $('#msg'), pickEl = $('.pick', dz);
 const barEl = $('#bar'), barWrap = $('#barwrap'), resEl = $('#results');
 const cancelBtn = el('button', { id: 'cancel', class: 'cancel', type: 'button', hidden: '', onclick: () => cancelRun() }, '취소');
 barWrap.after(cancelBtn);
@@ -79,6 +79,7 @@ function renderFiles() {
     const j = i + d;
     if (j < 0 || j >= state.files.length) return;
     [state.files[i], state.files[j]] = [state.files[j], state.files[i]];
+    invalidate();
     renderFiles();
   };
   const rows = state.files.map((f, i) => el('li', {},
@@ -89,7 +90,7 @@ function renderFiles() {
     el('span', { class: 'fn' }, f.name), el('span', { class: 'fs' }, fmtSize(f.size)),
     el('button', { class: 'x', type: 'button', title: '삭제', 'aria-label': `${f.name} 삭제`, onclick: () => { state.files.splice(i, 1); refresh(); dz.focus(); } }, '×')));
   if (ordered) {
-    const sortBy = (fn) => { state.files.sort(fn); renderFiles(); };
+    const sortBy = (fn) => { state.files.sort(fn); invalidate(); renderFiles(); };
     rows.unshift(el('li', { class: 'sortbar' }, el('span', { class: 'fs' }, '순서'),
       el('button', { class: 'pb wide', type: 'button', onclick: () => sortBy((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) }, '이름순'),
       el('button', { class: 'pb wide', type: 'button', onclick: () => sortBy((a, b) => a.lastModified - b.lastModified) }, '날짜순')));
@@ -118,7 +119,7 @@ const textIn = (ph, val = '', w = '', label = '') => el('input', { type: 'text',
 
 function renderOpts() {
   const e = state.entry;
-  const key = e ? `${e.kind}:${e.mode || ''}:${e.targetKB || ''}` : '';
+  const key = e ? `${e.kind}:${e.mode || ''}:${e.targetKB || ''}${e.kind === 'text' ? ':' + e.output : ''}` : '';
   if (key !== state.optsKey) { // 같은 도구면 사용자가 고른 옵션을 그대로 둔다
     state.optsKey = key;
     optsEl.replaceChildren();
@@ -201,6 +202,12 @@ function buildOpts(e) {
     optsEl.append(row('크기', w.el), row('부드러움', fps.el), row('시작', start), row('길이(초)', len));
     state.optsGet = () => ({ width: w.get(), fps: fps.get(), start: start.value, len: len.value });
   }
+  if (k === 'text' && e.output === 'pdf') {
+    optsEl.append(el('p', { class: 'ohint' }, '글자를 사진처럼 넣어 만드는 PDF라서, 열어 보면 글자를 선택·검색·복사할 수 없어요. 출력하거나 보여 주는 용도로 쓰세요.'));
+  }
+  if (NO_NET_KINDS.has(k)) {
+    optsEl.append(el('p', { class: 'ohint' }, '처음 변환할 때는 변환 엔진(약 32MB)을 내려받느라 시간이 더 걸려요.'));
+  }
 }
 
 // PDF 쪽 그리드 (정리·삭제·추출) — 이 도구에서만 필요해서 그때 불러온다
@@ -219,7 +226,7 @@ async function ensureGrid() {
   optsEl.replaceChildren(el('p', { class: 'ohint' }, '쪽 미리보기를 만드는 중…'));
   try {
     const { createGrid } = await import('./pdfgrid.js');
-    const g = await createGrid(f, e.mode, refreshGo);
+    const g = await createGrid(f, e.mode, () => { invalidate(); refreshGo(); });
     if (state.gridKey !== key) { g.destroy(); return; }
     state.grid = g;
     optsEl.replaceChildren(g.el);
@@ -253,7 +260,7 @@ function renderTargets() {
     const label = c.chip || (c.kind === 'text' ? c.toName : c.verb ? c.title.replace(/^이미지 /, '') : c.toName);
     targetsEl.append(el('button', {
       class: 'chip' + (c === state.entry ? ' on' : ''), type: 'button', 'aria-pressed': String(c === state.entry),
-      onclick: () => { state.entry = c; clearResults(); renderTargets(); renderFiles(); renderOpts(); refreshGo(); targetsEl.querySelector('.chip.on')?.focus(); },
+      onclick: () => { state.entry = c; clearResults(); setMsg(''); renderTargets(); renderFiles(); renderOpts(); refreshGo(); targetsEl.querySelector('.chip.on')?.focus(); },
     }, label));
   }
 }
@@ -289,7 +296,10 @@ function refresh() {
   renderTargets();
   renderOpts();
   refreshGo();
-  dz.classList.toggle('has', state.files.length > 0);
+  const has = state.files.length > 0;
+  dz.classList.toggle('has', has);
+  // 파일이 있을 때도 눌러서 더 추가할 수 있게 버튼을 남겨 둔다
+  if (pickEl) pickEl.textContent = !has ? '파일 선택' : (fixed ? fixed.multi : true) ? '+ 파일 추가' : '다른 파일로 바꾸기';
 }
 
 function clearResults() {
@@ -298,6 +308,28 @@ function clearResults() {
   state.results = [];
   state.done = false;
   resEl.replaceChildren();
+}
+// 옵션·순서가 바뀌면 이전 결과는 더 이상 맞지 않으므로 치운다 (엉뚱한 파일을 받는 일 방지)
+function invalidate() {
+  if (!state.done) return;
+  clearResults(); setMsg(''); refreshGo();
+}
+
+// 움직이는 GIF 를 움직임 없는 형식으로 바꾸려는 경우 미리 알려 준다
+const STILL_KINDS = new Set(['image', 'compress', 'resize', 'exif', 'imgpdf', 'stitch', 'ico']);
+async function warnAnimated(list) {
+  const e = state.entry;
+  if (!e || !STILL_KINDS.has(e.kind)) return;
+  for (const f of list) {
+    if (normExt(f.name) !== 'gif') continue;
+    let n = 1;
+    try { n = await gifFrames(f); } catch { continue; }
+    if (n > 1 && !state.busy && state.files.includes(f) && !msgEl.textContent) {
+      setMsg(`움직이는 GIF(${n}장면)예요. 이 변환은 움직임이 없어지고 첫 장면 한 장만 남아요. 움직임을 살리려면 GIF → MP4 변환을 쓰세요.`, false,
+        IN_ARTIFACT ? null : { href: fixed ? '../gif-to-mp4/' : 'gif-to-mp4/', text: '바로가기 →' });
+      return;
+    }
+  }
 }
 
 function addFiles(fl) {
@@ -320,6 +352,7 @@ function addFiles(fl) {
     state.files.push(...fresh);
     refresh();
   }
+  warnAnimated(state.files); // refresh() 가 안내를 지우므로 목록 전체를 다시 살핀다
 }
 
 // 폴더를 통째로 끌어다 놓아도 안의 파일을 모두 꺼낸다
@@ -343,7 +376,7 @@ async function filesFromDrop(dt) {
 }
 
 // ───────── 이벤트
-dz.addEventListener('click', (e) => { if (e.target.closest('button') || e.target.closest('li')) return; fileInput.click(); });
+dz.addEventListener('click', (e) => { if (e.target.closest('button')) return; fileInput.click(); });
 dz.addEventListener('keydown', (e) => { if (e.target === dz && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); fileInput.click(); } });
 fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
 let dragDepth = 0;
@@ -360,9 +393,11 @@ window.addEventListener('paste', (e) => {
   const fs = e.clipboardData?.files;
   if (fs && fs.length && !(fixed?.kind === 'text') && !e.target.closest?.('input,textarea')) addFiles(fs);
 });
-if (textBox) textBox.addEventListener('input', () => { state.text = textBox.value; clearResults(); renderTargets(); refreshGo(); });
+if (textBox) textBox.addEventListener('input', () => { state.text = textBox.value; clearResults(); renderTargets(); renderOpts(); refreshGo(); });
 const pasteBox = $('details.paste');
 pasteBox?.addEventListener('toggle', () => { if (pasteBox.open) textBox?.focus(); });
+for (const ev of ['input', 'change']) optsEl.addEventListener(ev, invalidate);
+optsEl.addEventListener('click', (e) => { if (e.target.closest('button')) invalidate(); });
 
 function setBusy(b) {
   state.busy = b;
@@ -452,7 +487,7 @@ function showResults(out, inputs) {
   }
   // 휴대폰에서는 공유 시트로 사진 앱·파일 앱에 바로 저장할 수 있다
   if (!IN_ARTIFACT && (coarse || out.length === 1) && navigator.canShare?.({ files: asFiles })) {
-    acts.append(el('button', { class: 'zip', type: 'button', onclick: () => navigator.share({ files: asFiles }).catch(() => {}) }, out.length > 1 ? '모두 공유·저장하기' : '공유·저장하기'));
+    acts.append(el('button', { class: 'zip', type: 'button', onclick: () => navigator.share({ files: asFiles }).catch((err) => { if (err?.name !== 'AbortError') setMsg('공유하지 못했어요. 아래 다운로드 버튼으로 받아 주세요.', true); }) }, out.length > 1 ? '모두 공유·저장하기' : '공유·저장하기'));
   }
   acts.append(el('button', { class: 'again', type: 'button', onclick: () => {
     state.files = []; state.text = ''; if (textBox) textBox.value = '';

@@ -24,12 +24,13 @@ h1 { font-size: clamp(24px, 5vw, 32px); margin: 18px 0 6px; letter-spacing: -0.0
 #dropzone { border: 2px dashed var(--line); border-radius: 14px; padding: 36px 16px; text-align: center; cursor: pointer; transition: .15s; outline: none; }
 #dropzone:hover, #dropzone.drag { border-color: var(--accent); background: var(--chip); }
 #dropzone:focus-visible { border-color: var(--accent); background: var(--chip); }
-#dropzone.has { padding: 16px; }
+#dropzone.has { padding: 16px; display: flex; flex-direction: column; }
 .dz-main { font-size: 18px; font-weight: 700; }
 .dz-sub { color: var(--sub); font-size: 14px; margin-top: 4px; }
 #dropzone.has .dz-sub { display: none; }
 .pick { display: inline-block; margin-top: 12px; padding: 10px 22px; background: var(--accent); color: var(--on-accent); border-radius: 10px; font-weight: 700; }
-#dropzone.has .pick { display: none; }
+#dropzone.has .pick { order: 3; align-self: center; margin-top: 14px; padding: 8px 18px; font-size: 14px; background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+#dropzone.has .pick:hover { background: var(--chip); }
 ul.files, ul.results { list-style: none; margin: 12px 0 0; padding: 0; }
 ul.files li, ul.results li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .fn { flex: 1 1 8em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
