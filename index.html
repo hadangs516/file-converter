@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>무료 파일 변환기 - 이미지·PDF·동영상·오디오 변환 | 모두의 파일 변환기</title>
+<meta name="description" content="이미지·PDF·오디오·영상·문서 변환을 한 곳에서. 파일을 올리거나 텍스트를 붙여넣고 원하는 형식만 고르면 끝. 가입·설치 없이 무료, 파일은 서버로 전송되지 않아요.">
+<link rel="canonical" href="https://hadangs516.github.io/file-converter/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="무료 파일 변환기 - 이미지·PDF·동영상·오디오 변환 | 모두의 파일 변환기">
+<meta property="og:description" content="이미지·PDF·오디오·영상·문서 변환을 한 곳에서. 파일을 올리거나 텍스트를 붙여넣고 원하는 형식만 고르면 끝. 가입·설치 없이 무료, 파일은 서버로 전송되지 않아요.">
+<meta property="og:url" content="https://hadangs516.github.io/file-converter/">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:site_name" content="모두의 파일 변환기">
+<meta property="og:image" content="https://hadangs516.github.io/file-converter/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/style.css">
+<script>(function(){var h=document.documentElement,v='1';try{var m=/[?&]draft=(0|1|clean)/.exec(location.search);if(m){if(m[1]==='clean'){h.dataset.draft='off';h.dataset.clean='1';return}v=m[1];localStorage.setItem('draft',v)}else v=localStorage.getItem('draft')||'1'}catch(e){}h.dataset.draft=v==='0'?'off':'on'})();</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"모두의 파일 변환기","url":"https://hadangs516.github.io/file-converter/","inLanguage":"ko"}</script>
+<script>if(location.protocol==='file:')addEventListener('DOMContentLoaded',function(){var m=document.getElementById('msg');if(m){m.className='msg err';m.textContent='이 파일은 웹 서버로 열어야 동작해요. 폴더의 미리보기 실행.bat 을 더블클릭하세요.';}});</script>
+</head>
+<body data-slug="main">
+<div class="draftbar"><label class="dswitch" title="초안 표시 켜기/끄기"><input type="checkbox" id="draftToggle" checked aria-label="초안 표시 켜기/끄기"><i></i><span class="dlabel">초안 표시</span></label><span class="dmsg">🚧 제작 중인 초안 화면이에요. <b class="y">노란 박스</b>는 정식 오픈 때 사라지고, <b class="b">파란 박스</b>는 광고가 들어갈 자리예요.</span></div>
+<script>(function(){var h=document.documentElement,c=document.getElementById('draftToggle');if(!c)return;c.checked=h.dataset.draft!=='off';c.addEventListener('change',function(){h.dataset.draft=c.checked?'on':'off';try{localStorage.setItem('draft',c.checked?'1':'0')}catch(e){}})})();</script>
+<header class="top">
+<a class="logo" href="./">모두의 파일 변환기</a>
+
+</header>
+<div class="adslot ad-side l" role="note"><b class="atag">광고 자리</b><span class="afmt">사이드 배너</span><span class="asize">세로형 160×600 · PC 화면에서만</span></div><div class="adslot ad-side r" role="note"><b class="atag">광고 자리</b><span class="afmt">사이드 배너</span><span class="asize">세로형 160×600 · PC 화면에서만</span></div>
+<main class="wrap">
+<div class="adslot ad-banner" role="note"><b class="atag">광고 자리</b><span class="afmt">배너 광고</span><span class="asize">가로형 · PC 728×90 / 모바일 320×100</span></div>
+<h1>무료 파일 변환기</h1>
+<p class="sub">파일을 올리고 바꿀 형식만 고르세요. 설치·가입 없이 무료.</p>
+<div class="draft"><b class="dtag">초안</b>지금은 임시 주소(GitHub Pages)에서 보는 초안이에요. 도메인을 연결하면 주소가 바뀌고, 그때까지는 검색에 나오지 않게 막아 두었어요(noindex).</div>
+<div class="card">
+<div id="dropzone" tabindex="0" role="button" aria-label="파일 선택">
+<div class="dz-main"><span class="dz-fine">파일을 여기에 끌어다 놓으세요</span><span class="dz-touch">파일을 선택하세요</span></div>
+<div class="dz-sub">또는 클릭해서 선택 · 붙여넣기(Ctrl+V)도 돼요</div>
+<span class="pick">파일 선택</span>
+<ul class="files" id="files"></ul>
+</div>
+<input type="file" id="file" hidden multiple >
+<details class="paste"><summary>텍스트를 붙여넣어 PDF·이미지로 만들기</summary>
+<textarea id="textbox" placeholder="여기에 텍스트를 붙여넣으세요" aria-label="텍스트 입력"></textarea></details>
+<div id="targets"></div>
+<div id="opts"></div>
+<button id="go" type="button" disabled>변환하기</button>
+<div id="barwrap" hidden><div id="bar"></div></div>
+<p class="msg" id="msg" role="status" aria-live="polite"></p>
+<ul class="results" id="results"></ul>
+</div>
+<div class="adslot ad-video" role="note"><b class="atag">광고 자리</b><span class="afmt">영상 광고</span><span class="asize">16:9 · 소리 없이 자동 재생되는 형태</span></div>
+<noscript><p class="msg err">이 도구는 자바스크립트가 켜져 있어야 사용할 수 있어요.</p></noscript>
+<div class="adslot ad-native" role="note"><b class="atag">광고 자리</b><span class="afmt">본문 광고</span><span class="asize">반응형 디스플레이 · 글 사이에 들어감</span></div>
+<section class="info"><h2>모든 변환</h2>
+<h3 class="gt">이미지</h3><div class="grid"><a href="./heic-to-jpg/">HEIC JPG 변환</a>
+<a href="./heic-to-png/">HEIC PNG 변환</a>
+<a href="./heic-to-webp/">HEIC WebP 변환</a>
+<a href="./jpg-to-png/">JPG PNG 변환</a>
+<a href="./jpg-to-webp/">JPG WebP 변환</a>
+<a href="./png-to-jpg/">PNG JPG 변환</a>
+<a href="./png-to-webp/">PNG WebP 변환</a>
+<a href="./webp-to-jpg/">WebP JPG 변환</a>
+<a href="./webp-to-png/">WebP PNG 변환</a>
+<a href="./avif-to-jpg/">AVIF JPG 변환</a>
+<a href="./avif-to-png/">AVIF PNG 변환</a>
+<a href="./avif-to-webp/">AVIF WebP 변환</a>
+<a href="./gif-to-jpg/">GIF JPG 변환</a>
+<a href="./gif-to-png/">GIF PNG 변환</a>
+<a href="./gif-to-webp/">GIF WebP 변환</a>
+<a href="./bmp-to-jpg/">BMP JPG 변환</a>
+<a href="./bmp-to-png/">BMP PNG 변환</a>
+<a href="./bmp-to-webp/">BMP WebP 변환</a>
+<a href="./tiff-to-jpg/">TIFF JPG 변환</a>
+<a href="./tiff-to-png/">TIFF PNG 변환</a>
+<a href="./tiff-to-webp/">TIFF WebP 변환</a>
+<a href="./svg-to-jpg/">SVG JPG 변환</a>
+<a href="./svg-to-png/">SVG PNG 변환</a>
+<a href="./svg-to-webp/">SVG WebP 변환</a>
+<a href="./image-compress/">이미지 용량 줄이기 (사진 압축)</a>
+<a href="./image-resize/">이미지 크기 조절</a>
+<a href="./image-compress-100kb/">사진·이미지 용량 100KB 이하로 줄이기</a>
+<a href="./image-compress-200kb/">사진·이미지 용량 200KB 이하로 줄이기</a>
+<a href="./image-compress-500kb/">사진·이미지 용량 500KB 이하로 줄이기</a>
+<a href="./image-compress-1mb/">사진·이미지 용량 1MB 이하로 줄이기</a>
+<a href="./exif-remove/">사진 위치정보(EXIF) 지우기</a>
+<a href="./image-merge/">이미지 이어붙이기</a>
+<a href="./png-to-ico/">PNG ICO 변환</a>
+<a href="./jpg-to-ico/">JPG ICO 변환</a>
+<a href="./svg-to-ico/">SVG ICO 변환</a></div>
+<h3 class="gt">PDF</h3><div class="grid"><a href="./jpg-to-pdf/">JPG PDF 변환</a>
+<a href="./png-to-pdf/">PNG PDF 변환</a>
+<a href="./webp-to-pdf/">WebP PDF 변환</a>
+<a href="./heic-to-pdf/">HEIC PDF 변환</a>
+<a href="./image-to-pdf/">이미지 PDF 변환</a>
+<a href="./pdf-to-jpg/">PDF JPG 변환</a>
+<a href="./pdf-to-png/">PDF PNG 변환</a>
+<a href="./pdf-merge/">PDF 합치기</a>
+<a href="./pdf-split/">PDF 나누기</a>
+<a href="./pdf-organize/">PDF 페이지 정리</a>
+<a href="./pdf-delete-pages/">PDF 페이지 삭제</a>
+<a href="./pdf-extract-pages/">PDF 페이지 추출</a>
+<a href="./pdf-to-txt/">PDF 텍스트 추출 (TXT 변환)</a>
+<a href="./pdf-compress/">PDF 용량 줄이기 (압축)</a>
+<a href="./pdf-page-numbers/">PDF 페이지 번호 넣기</a>
+<a href="./pdf-watermark/">PDF 워터마크 넣기</a></div>
+<h3 class="gt">오디오</h3><div class="grid"><a href="./mp3-to-wav/">MP3 WAV 변환</a>
+<a href="./mp3-to-ogg/">MP3 OGG 변환</a>
+<a href="./mp3-to-m4a/">MP3 M4A 변환</a>
+<a href="./mp3-to-flac/">MP3 FLAC 변환</a>
+<a href="./wav-to-mp3/">WAV MP3 변환</a>
+<a href="./wav-to-ogg/">WAV OGG 변환</a>
+<a href="./wav-to-m4a/">WAV M4A 변환</a>
+<a href="./wav-to-flac/">WAV FLAC 변환</a>
+<a href="./ogg-to-mp3/">OGG MP3 변환</a>
+<a href="./ogg-to-wav/">OGG WAV 변환</a>
+<a href="./ogg-to-m4a/">OGG M4A 변환</a>
+<a href="./ogg-to-flac/">OGG FLAC 변환</a>
+<a href="./m4a-to-mp3/">M4A MP3 변환</a>
+<a href="./m4a-to-wav/">M4A WAV 변환</a>
+<a href="./m4a-to-ogg/">M4A OGG 변환</a>
+<a href="./m4a-to-flac/">M4A FLAC 변환</a>
+<a href="./flac-to-mp3/">FLAC MP3 변환</a>
+<a href="./flac-to-wav/">FLAC WAV 변환</a>
+<a href="./flac-to-ogg/">FLAC OGG 변환</a>
+<a href="./flac-to-m4a/">FLAC M4A 변환</a>
+<a href="./aac-to-mp3/">AAC MP3 변환</a>
+<a href="./aac-to-wav/">AAC WAV 변환</a>
+<a href="./aac-to-ogg/">AAC OGG 변환</a>
+<a href="./aac-to-m4a/">AAC M4A 변환</a>
+<a href="./aac-to-flac/">AAC FLAC 변환</a>
+<a href="./wma-to-mp3/">WMA MP3 변환</a>
+<a href="./audio-trim/">오디오 자르기</a></div>
+<h3 class="gt">영상</h3><div class="grid"><a href="./mp4-to-mp3/">MP4 MP3 변환</a>
+<a href="./mov-to-mp3/">MOV MP3 변환</a>
+<a href="./mkv-to-mp3/">MKV MP3 변환</a>
+<a href="./webm-to-mp3/">WebM MP3 변환</a>
+<a href="./avi-to-mp3/">AVI MP3 변환</a>
+<a href="./mp4-to-m4a/">MP4 M4A 변환</a>
+<a href="./mov-to-m4a/">MOV M4A 변환</a>
+<a href="./mp4-to-wav/">MP4 WAV 변환</a>
+<a href="./mov-to-mp4/">MOV MP4 변환</a>
+<a href="./avi-to-mp4/">AVI MP4 변환</a>
+<a href="./mkv-to-mp4/">MKV MP4 변환</a>
+<a href="./webm-to-mp4/">WebM MP4 변환</a>
+<a href="./wmv-to-mp4/">WMV MP4 변환</a>
+<a href="./flv-to-mp4/">FLV MP4 변환</a>
+<a href="./mp4-to-webm/">MP4 WebM 변환</a>
+<a href="./mp4-to-mov/">MP4 MOV 변환</a>
+<a href="./mp4-to-mkv/">MP4 MKV 변환</a>
+<a href="./mp4-to-avi/">MP4 AVI 변환</a>
+<a href="./gif-to-mp4/">GIF MP4 변환</a>
+<a href="./mp4-to-gif/">MP4 GIF 변환</a>
+<a href="./mov-to-gif/">MOV GIF 변환</a>
+<a href="./webm-to-gif/">WebM GIF 변환</a>
+<a href="./video-compress/">동영상 용량 줄이기</a>
+<a href="./video-trim/">동영상 자르기</a>
+<a href="./video-mute/">동영상 소리 없애기</a></div>
+<h3 class="gt">문서</h3><div class="grid"><a href="./csv-to-json/">CSV JSON 변환</a>
+<a href="./json-to-csv/">JSON CSV 변환</a>
+<a href="./csv-to-xlsx/">CSV Excel(XLSX) 변환</a>
+<a href="./xlsx-to-csv/">Excel(XLSX) CSV 변환</a>
+<a href="./xlsx-to-json/">Excel(XLSX) JSON 변환</a>
+<a href="./json-to-xlsx/">JSON Excel(XLSX) 변환</a>
+<a href="./xls-to-xlsx/">Excel(XLS) Excel(XLSX) 변환</a>
+<a href="./xls-to-csv/">Excel(XLS) CSV 변환</a>
+<a href="./xlsx-to-html/">Excel(XLSX) HTML 변환</a>
+<a href="./csv-to-html/">CSV HTML 변환</a>
+<a href="./docx-to-txt/">Word(DOCX) 텍스트(TXT) 변환</a>
+<a href="./docx-to-html/">Word(DOCX) HTML 변환</a>
+<a href="./hwpx-to-txt/">한글(HWPX) 텍스트(TXT) 변환</a>
+<a href="./txt-encoding-fix/">텍스트·CSV 한글 깨짐 고치기</a></div>
+<h3 class="gt">텍스트</h3><div class="grid"><a href="./text-to-pdf/">텍스트를 PDF로 만들기</a>
+<a href="./text-to-png/">텍스트를 PNG 이미지로 만들기</a>
+<a href="./text-to-jpg/">텍스트를 JPG 이미지로 만들기</a></div>
+</section>
+</main>
+<footer>
+<a href="./about/">소개</a><a href="./privacy/">개인정보처리방침</a>
+<div style="margin-top:8px">© 모두의 파일 변환기</div>
+<div class="draft"><b class="dtag">초안</b>문의 메일·사업자 정보 자리 — 도메인 메일을 만들면 여기에 표시돼요</div>
+</footer>
+<script type="module" src="./js/ui.js"></script>
+</body>
+</html>
